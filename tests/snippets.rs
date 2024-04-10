@@ -1,4 +1,4 @@
-use resast::{expr::QuasiQuote, prelude::*, spanned::Position};
+use resast::{expr::QuasiQuote, prelude::*, spanned::Position, MemberIndexer};
 use ressa::*;
 use std::borrow::Cow;
 #[test]
@@ -9,6 +9,7 @@ fn doc1() {
         id: Some(Ident::from(Cow::Borrowed("helloWorld"))),
         params: vec![],
         body: FuncBody(vec![ProgramPart::Stmt(Stmt::Expr(Expr::Call(CallExpr {
+            optional: false,
             callee: Box::new(Expr::ident_from("alert".into())),
             arguments: vec![Expr::Lit(Lit::single_string_from("Hello world".into()))],
         })))]),
@@ -28,6 +29,7 @@ fn readme_iter_example() {
         id: Some(Ident::from(Cow::Borrowed("helloWorld"))),
         params: vec![],
         body: FuncBody(vec![ProgramPart::Stmt(Stmt::Expr(Expr::Call(CallExpr {
+            optional: false,
             callee: Box::new(Expr::ident_from(Cow::Borrowed("alert"))),
             arguments: vec![Expr::Lit(Lit::String(StringLit::Single(
                 Cow::Borrowed("Hello world").into(),
@@ -770,6 +772,7 @@ fn class_extended_by_call() {
     let callee = Expr::Ident(callee);
     let callee = Box::new(callee);
     let super_class = CallExpr {
+        optional: false,
         callee,
         arguments: vec![],
     };
@@ -797,6 +800,7 @@ fn class_anon_extended_by_call() {
     let callee = Expr::Ident(callee);
     let callee = Box::new(callee);
     let super_class = CallExpr {
+        optional: false,
         callee,
         arguments: vec![],
     };
@@ -962,6 +966,7 @@ fn super_tagged_template_in_ctor() {
                     body: FuncBody(vec![ProgramPart::Stmt(Stmt::Expr(Expr::TaggedTemplate(
                         TaggedTemplateExpr {
                             tag: Box::new(Expr::Call(CallExpr {
+                                optional: false,
                                 callee: Box::new(Expr::Super),
                                 arguments: vec![],
                             })),
@@ -991,6 +996,7 @@ fn super_in_new_class_expr() {
         .unwrap();
     let tokens = p.parse().unwrap();
     let call_super = CallExpr {
+        optional: false,
         callee: Box::new(Expr::Super),
         arguments: vec![],
     };
@@ -1006,6 +1012,7 @@ fn super_in_new_class_expr() {
     };
     let arrow_call_super = Expr::ArrowFunc(arrow_call_super);
     let call_arrow = CallExpr {
+        optional: false,
         callee: Box::new(arrow_call_super),
         arguments: vec![],
     };
@@ -1416,6 +1423,78 @@ fn optional_chaining2() {
 #[test]
 fn optional_chaining3() {
     run_spanned_test("a?.()", false).unwrap();
+}
+
+#[test]
+fn optional_chaining4() {
+    run_test("a?.()", false).unwrap();
+}
+
+#[test]
+fn optional_chaining5() {
+    run_test("a?.b", false).unwrap();
+}
+
+#[test]
+fn optional_chaining6() {
+    run_test("a?.['b']", false).unwrap();
+}
+
+#[test]
+fn optional_chaining7() {
+    run_spanned_test("a?.()", false).unwrap();
+}
+
+#[test]
+fn optional_chaining8() {
+    let js = "a?.()";
+    let p = Parser::new(&js).unwrap();
+    let f: ProgramPart<Cow<'static, str>> = ProgramPart::Stmt(Stmt::Expr(Expr::Call(CallExpr {
+        optional: true,
+        callee: Box::new(Expr::Ident(Ident {
+            name: Cow::from("a"),
+        })),
+        arguments: vec![],
+    })));
+    for part in p {
+        assert_eq!(part.unwrap(), f);
+    }
+}
+
+#[test]
+fn optional_chaining9() {
+    let js = "a?.b";
+    let p = Parser::new(&js).unwrap();
+    let f: ProgramPart<Cow<'static, str>> =
+        ProgramPart::Stmt(Stmt::Expr(Expr::Member(MemberExpr {
+            object: Box::new(Expr::Ident(Ident {
+                name: Cow::from("a"),
+            })),
+            property: Box::new(Expr::Ident(Ident {
+                name: Cow::from("b"),
+            })),
+            indexer: MemberIndexer::Optional,
+        })));
+    for part in p {
+        assert_eq!(part.unwrap(), f);
+    }
+}
+
+#[test]
+fn optional_chaining10() {
+    let js = "a?.['b']";
+    let p = Parser::new(&js).unwrap();
+    let f: ProgramPart<Cow<'static, str>> =
+        ProgramPart::Stmt(Stmt::Expr(Expr::Member(MemberExpr {
+            object: Box::new(Expr::Ident(Ident {
+                name: Cow::from("a"),
+            })),
+            property: Box::new(Expr::Lit(Lit::String(StringLit::Single(Cow::from("b"))))),
+            indexer: MemberIndexer::OptionalComputed,
+        })));
+    for part in p {
+        assert_eq!(part.unwrap(), f);
+    }
 }
 
 fn run_test(js: &str, as_mod: bool) -> Result<(), ressa::Error> {

@@ -28,6 +28,7 @@
 //!                             Stmt::Expr(
 //!                                 Expr::Call(
 //!                                     CallExpr {
+//!                                         optional: false,
 //!                                         callee: Box::new(
 //!                                             Expr::ident_from("alert")
 //!                                         ),
@@ -320,6 +321,7 @@ where
     ///     let js = "function helloWorld() { alert('Hello world'); }";
     ///     let mut p = Parser::new(&js).unwrap();
     ///     let call = CallExpr {
+    ///         optional: false,
     ///         callee: Box::new(Expr::ident_from("alert")),
     ///         arguments: vec![Expr::Lit(Lit::single_string_from("Hello world"))],
     ///     };
